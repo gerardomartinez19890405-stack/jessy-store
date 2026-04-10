@@ -1,76 +1,123 @@
 import streamlit as st
 import datetime
+import os
+import urllib.parse 
+import pandas as pd
 
-# --- CONFIGURACIÓN DEL NEGOCIO ---
+# --- CONFIGURACIÓN ---
+NOMBRE_TIENDA = "JESSY STORE 🛍️" 
 COSTO_ENVIO = 4.00
-WHATSAPP_NEGOCIO = "50370000000" # Tu número real aquí
+WHATSAPP_NEGOCIO = "50376813561" 
+ARCHIVO_PEDIDOS = "pedidos_base.csv"
 
-# Configuración de la página (Título en la pestaña del navegador)
-st.set_page_config(page_title="Tienda Online | Pedidos", layout="wide")
+st.set_page_config(page_title=NOMBRE_TIENDA, page_icon="🛍️", layout="wide")
 
-# --- BASE DE DATOS DE PRODUCTOS ---
-# Si quieres agregar más, solo copia una línea y cambia los datos
+# --- MOTOR DE DATOS ---
+def guardar_pedido(datos):
+    df_nuevo = pd.DataFrame([datos])
+    if not os.path.isfile(ARCHIVO_PEDIDOS):
+        df_nuevo.to_csv(ARCHIVO_PEDIDOS, index=False, encoding="utf-8")
+    else:
+        df_nuevo.to_csv(ARCHIVO_PEDIDOS, mode='a', header=False, index=False, encoding="utf-8")
+
+# --- LISTA DE PRODUCTOS ---
 productos = [
-    {"id": 1, "nombre": "Reloj Inteligente Z", "precio": 45.0, "desc": "Pantalla AMOLED, ideal para deportes."},
-    {"id": 2, "nombre": "Audífonos Bluetooth G", "precio": 25.0, "desc": "Sonido HD con cancelación de ruido."},
-    {"id": 3, "nombre": "Cargador Carga Rápida", "precio": 15.0, "desc": "Carga tu celular al 100% en minutos."}
+    {"id": 1, "nombre": "Paraguas Reforzado", "precio": 10.00, "desc": "Protección contra lluvia y sol.", "imagen": "paraguas.png.jpg"},
+    {"id": 2, "nombre": "Bicicleta Montañera", "precio": 20.00, "desc": "Resistente para todo terreno.", "imagen": "catalogo/bicicleta.jpg"},
+    {"id": 3, "nombre": "Paila de Plástico", "precio": 25.00, "desc": "Paila de plástico reforzado.", "imagen": "catalogo/paila.jpg"},
+    {"id": 4, "nombre": "Cocina de Gas", "precio": 30.00, "desc": "Eficiente para el hogar.", "imagen": "catalogo/cocina.jpg"}
 ]
 
-# --- INTERFAZ DEL CLIENTE ---
-st.title("🛍️ BIENVENIDO A NUESTRA TIENDA")
-st.write("Selecciona tus productos favoritos y te los enviamos a la puerta de tu casa.")
-st.divider()
+st.title(f"🌸 {NOMBRE_TIENDA}")
 
-# Mostramos los productos en columnas
-cols = st.columns(len(productos))
-
-for i, p in enumerate(productos):
-    with cols[i]:
-        st.subheader(p['nombre'])
-        st.write(f"### ${p['precio']}")
-        st.write(p['desc'])
-        
-        # Botón de consulta rápida
-        url_wa = f"https://wa.me/{WHATSAPP_NEGOCIO}?text=Hola, quiero info de {p['nombre']}"
-        st.markdown(f"[💬 Info por WhatsApp]({url_wa})")
-        
-        if st.button(f"Comprar {p['nombre']}", key=f"btn_{p['id']}"):
-            st.session_state.producto_elegido = p
-
-# --- PROCESO DE PEDIDO ---
-if 'producto_elegido' in st.session_state:
-    p_compra = st.session_state.producto_elegido
-    st.divider()
-    st.header(f"📦 Datos de Envío para: {p_compra['nombre']}")
-    
-    with st.form("datos_cliente"):
-        nombre = st.text_input("Nombre y Apellido*")
-        
-        c1, c2 = st.columns(2)
-        with c1:
-            depto = st.text_input("Departamento*")
-            distrito = st.text_input("Distrito / Municipio*")
-        with c2:
-            colonia = st.text_input("Colonia / Caserío / Cantón*")
-            casa = st.text_input("Número de casa / Lote")
-            
-        referencia = st.text_area("Punto de referencia detallado (ej: frente al árbol de ceiba)*")
-        celular = st.text_input("Número de celular (Te llamaremos para confirmar)*")
-        
-        total = p_compra['precio'] + COSTO_ENVIO
-        st.info(f"**Total a pagar al recibir:** ${total} (Incluye ${COSTO_ENVIO} de envío)")
-        
-        if st.form_submit_button("🚀 CONFIRMAR PEDIDO"):
-            if nombre and depto and distrito and colonia and referencia and celular:
-                # GUARDAR VENTA
-                fecha_hora = datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S")
-                registro = f"[{fecha_hora}] {p_compra['nombre']} | CLIENTE: {nombre} | CEL: {celular} | DIR: {colonia}, {distrito}, {depto} | REF: {referencia}\n"
-                
-                with open("pedidos.txt", "a", encoding="utf-8") as f:
-                    f.write(registro)
-                
-                st.success(f"¡Pedido de {p_compra['nombre']} recibido! Prepárate, te llamaremos pronto.")
-                st.balloons()
-                del st.session_state.producto_elegido
+# --- PANEL DE CONTROL (ARRIBA) ---
+with st.expander("🛠️ PANEL DE CONTROL (PEDIDOS CONFIRMADOS)"):
+    if os.path.exists(ARCHIVO_PEDIDOS):
+        try:
+            df_p = pd.read_csv(ARCHIVO_PEDIDOS)
+            if 'Celular' in df_p.columns:
+                st.dataframe(df_p, use_container_width=True)
+                for i, row in df_p.iterrows():
+                    st.checkbox(f"Hecho: {row['Cliente']} ({row['Producto']})", key=f"e_{i}")
             else:
-                st.error("Por favor llena todos los campos marcados con *")
+                st.warning("⚠️ Borra 'pedidos_base.csv' para actualizar el sistema.")
+        except:
+            st.error("Error al leer datos.")
+    else:
+        st.info("No hay pedidos registrados.")
+
+st.write("---")
+
+# --- CATÁLOGO ---
+for p in productos:
+    with st.container():
+        col_img, col_txt = st.columns([1, 2])
+        with col_img:
+            if os.path.exists(p['imagen']): st.image(p['imagen'], width=200)
+            else: st.warning("Sin foto")
+        with col_txt:
+            st.header(p['nombre'])
+            st.subheader(f"${p['precio']:.2f}")
+            st.write(p['desc'])
+            
+            c1, c2 = st.columns(2)
+            with c1:
+                url_i = f"https://wa.me/{WHATSAPP_NEGOCIO}?text=Info%20de%20{p['nombre']}"
+                st.link_button("💬 Consultar WhatsApp", url=url_i, use_container_width=True)
+            with c2:
+                if st.button(f"🛒 Pedir {p['nombre']}", key=f"btn_{p['id']}", use_container_width=True):
+                    st.session_state.id_comprando = p['id']
+                    st.session_state.pedido_exitoso = False # Reiniciamos estado al pedir nuevo
+                    st.rerun()
+
+    # --- LÓGICA DE FORMULARIO O BOTÓN DE WHATSAPP ---
+    if st.session_state.get('id_comprando') == p['id']:
+        
+        # SI EL PEDIDO YA SE REGISTRÓ, MOSTRAMOS EL BOTÓN DE WHATSAPP JUSTO AQUÍ
+        if st.session_state.get('pedido_exitoso'):
+            st.balloons()
+            st.success("✅ ¡Datos registrados en nuestra lista!")
+            st.link_button("📲 ENVIAR PEDIDO POR WHATSAPP", url=st.session_state.url_final, type="primary", use_container_width=True)
+            if st.button("Finalizar y cerrar"):
+                st.session_state.id_comprando = None
+                st.session_state.pedido_exitoso = False
+                st.rerun()
+        
+        # SI NO SE HA REGISTRADO, MOSTRAMOS EL FORMULARIO
+        else:
+            st.info(f"📍 Datos de entrega para: {p['nombre']}")
+            with st.form(key=f"form_{p['id']}"):
+                f1, f2 = st.columns(2)
+                with f1:
+                    nombre = st.text_input("Nombre y Apellido*")
+                    celular = st.text_input("Número de Celular*")
+                with f2:
+                    depto = st.selectbox("Departamento*", ["Ahuachapán", "Cabañas", "Chalatenango", "Cuscatlán", "La Libertad", "La Paz", "La Unión", "Morazán", "San Miguel", "San Salvador", "San Vicente", "Santa Ana", "Sonsonate", "Usulután"])
+                    distrito = st.text_input("Distrito*")
+                
+                direccion = st.text_input("Dirección Exacta*")
+                total = p['precio'] + COSTO_ENVIO
+                
+                b_env, b_can = st.columns(2)
+                with b_env:
+                    if st.form_submit_button("🚀 REGISTRAR PEDIDO"):
+                        if nombre and celular and distrito and direccion:
+                            fecha = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
+                            # GUARDAR EN CSV
+                            guardar_pedido({
+                                "Fecha": fecha, "Producto": p['nombre'], "Precio": p['precio'],
+                                "Total": total, "Cliente": nombre, "Celular": celular,
+                                "Depto": depto, "Distrito": distrito, "Direccion": direccion
+                            })
+                            # PREPARAR WHATSAPP
+                            texto_wa = f"✅ *NUEVO PEDIDO*\n📦 *Producto:* {p['nombre']}\n👤 *Cliente:* {nombre}\n📱 *Cel:* {celular}\n🏠 *Dirección:* {direccion}, {distrito}\n💰 *TOTAL:* ${total:.2f}"
+                            st.session_state.url_final = f"https://wa.me/{WHATSAPP_NEGOCIO}?text={urllib.parse.quote(texto_wa)}"
+                            st.session_state.pedido_exitoso = True # Cambiamos a estado exitoso
+                            st.rerun()
+                        else:
+                            st.error("⚠️ Llena todos los campos.")
+                with b_can:
+                    if st.form_submit_button("❌ CANCELAR"):
+                        st.session_state.id_comprando = None
+                        st.rerun()
+    st.write("---")
